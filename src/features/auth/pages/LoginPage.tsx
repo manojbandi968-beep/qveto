@@ -3,6 +3,7 @@ import type { FC, FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Mail, Lock, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase.ts'
+import { GoogleIcon } from '../../../components/common/GoogleIcon.tsx'
 
 export const LoginPage: FC = () => {
   const navigate = useNavigate()
@@ -11,7 +12,22 @@ export const LoginPage: FC = () => {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isResending, setIsResending] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const searchParams = new URLSearchParams(window.location.search)
+
+    const errorDesc = hashParams.get('error_description') || searchParams.get('error_description')
+    const errorMsg = hashParams.get('error') || searchParams.get('error')
+
+    if (errorDesc) {
+      return decodeURIComponent(errorDesc.replace(/\+/g, ' '))
+    }
+    if (errorMsg) {
+      return decodeURIComponent(errorMsg.replace(/\+/g, ' '))
+    }
+    return null
+  })
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleResendConfirmation = async () => {
@@ -98,6 +114,30 @@ export const LoginPage: FC = () => {
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    setErrorMessage(null)
+    setSuccessMessage(null)
+    setIsLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+
+      if (error) {
+        setErrorMessage(error.message)
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Google sign in could not be started.'
+      setErrorMessage(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -137,6 +177,26 @@ export const LoginPage: FC = () => {
           <span>{successMessage}</span>
         </div>
       )}
+
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          className="w-full flex items-center justify-center gap-2.5 rounded-lg border border-slate-700 bg-slate-900/90 py-2.5 px-4 text-sm font-semibold text-slate-100 transition-all hover:border-slate-500 hover:bg-slate-800/80 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer shadow-sm"
+        >
+          <GoogleIcon className="h-4 w-4 shrink-0" />
+          <span>Continue with Google</span>
+        </button>
+
+        <div className="relative flex items-center py-1">
+          <div className="h-px flex-1 bg-slate-800" />
+          <span className="px-3 text-[10px] font-medium uppercase tracking-[0.15em] text-slate-500">
+            or continue with email
+          </span>
+          <div className="h-px flex-1 bg-slate-800" />
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* Email input */}
