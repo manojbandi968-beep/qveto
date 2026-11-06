@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Routes, Route, Navigate, Link } from 'react-router-dom'
+import { Routes, Route, Link } from 'react-router-dom'
 import { AppLayout } from '../components/layout/AppLayout.tsx'
 import { AuthLayout } from '../components/layout/AuthLayout.tsx'
 import { LoginPage } from '../features/auth/pages/LoginPage.tsx'
@@ -8,6 +8,7 @@ import { DashboardPage } from '../features/dashboard/pages/DashboardPage.tsx'
 import { ProjectsPage } from '../features/projects/pages/ProjectsPage.tsx'
 import { ProjectDetailsPage } from '../features/projects/pages/ProjectDetailsPage.tsx'
 import { OnboardingPage } from '../features/organizations/pages/OnboardingPage.tsx'
+import { LandingPage } from '../features/landing/pages/LandingPage.tsx'
 import { ProtectedRoute } from './ProtectedRoute.tsx'
 import { RequireOrganization } from './RequireOrganization.tsx'
 import { PublicOnlyRoute } from './PublicOnlyRoute.tsx'
@@ -37,8 +38,8 @@ const NotFoundPage: FC = () => {
 export const AppRoutes: FC = () => {
   return (
     <Routes>
-      {/* Root redirect to Dashboard */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Public Landing Page */}
+      <Route path="/" element={<LandingPage />} />
 
       {/* Authenticated Routes */}
       <Route element={<ProtectedRoute />}>
