@@ -8,7 +8,6 @@ import {
   Settings,
   Layers,
   LogOut,
-  Database,
   X,
   Loader2,
   Building2,
@@ -24,10 +23,10 @@ interface SidebarProps {
 
 const navItems = [
   { name: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { name: 'Projects', to: '/projects', icon: FolderKanban, badge: '6' },
-  { name: 'Tasks', to: '/dashboard', icon: CheckSquare, badge: '12' },
-  { name: 'Team', to: '/dashboard', icon: Users },
-  { name: 'Settings', to: '/dashboard', icon: Settings },
+  { name: 'Projects', to: '/projects', icon: FolderKanban },
+  { name: 'Tasks', to: '/tasks', icon: CheckSquare },
+  { name: 'Team', to: '/team', icon: Users },
+  { name: 'Settings', to: '/settings', icon: Settings },
 ]
 
 export const Sidebar: FC<SidebarProps> = ({ isOpen = false, onClose }) => {
@@ -154,40 +153,12 @@ export const Sidebar: FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                           />
                           <span>{item.name}</span>
                         </div>
-                        {item.badge && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                              isActive
-                                ? 'bg-indigo-500/20 text-indigo-300'
-                                : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700'
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
                       </>
                     )}
                   </NavLink>
                 )
               })}
             </nav>
-          </div>
-
-          {/* Supabase status banner card */}
-          <div className="rounded-xl border border-slate-800/80 bg-gradient-to-br from-slate-900/80 to-slate-950/80 p-3.5 text-xs">
-            <div className="flex items-center gap-2 mb-1.5 text-emerald-400 font-medium">
-              <Database className="h-3.5 w-3.5" />
-              <span>Multi-Tenant DB</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed mb-2.5">
-              Row Level Security isolates data per organization.
-            </p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-slate-800/60 pt-2">
-              <span>Isolation:</span>
-              <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Active
-              </span>
-            </div>
           </div>
         </div>
 

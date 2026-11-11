@@ -7,6 +7,9 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage.tsx'
 import { DashboardPage } from '../features/dashboard/pages/DashboardPage.tsx'
 import { ProjectsPage } from '../features/projects/pages/ProjectsPage.tsx'
 import { ProjectDetailsPage } from '../features/projects/pages/ProjectDetailsPage.tsx'
+import { TasksPage } from '../features/tasks/pages/TasksPage.tsx'
+import { TeamPage } from '../features/organizations/pages/TeamPage.tsx'
+import { SettingsPage } from '../features/organizations/pages/SettingsPage.tsx'
 import { OnboardingPage } from '../features/organizations/pages/OnboardingPage.tsx'
 import { LandingPage } from '../features/landing/pages/LandingPage.tsx'
 import { ProtectedRoute } from './ProtectedRoute.tsx'
@@ -52,6 +55,9 @@ export const AppRoutes: FC = () => {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Route>

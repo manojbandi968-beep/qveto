@@ -42,3 +42,4 @@ export const ClosingSection: FC = () => {
     </section>
   )
 }
+

@@ -40,3 +40,4 @@ export const LandingPage: FC = () => {
     </div>
   )
 }
+
