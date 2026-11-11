@@ -1,17 +1,17 @@
 import type { FC } from 'react'
 import { NavLink, Link, useNavigate } from 'react-router-dom'
 import {
-  LayoutGrid,
-  FolderKanban,
+  Building2,
   CheckSquare,
+  FolderKanban,
+  BarChart3,
   Users,
-  Settings,
+  UserCheck,
   Layers,
   LogOut,
   ChevronRight,
   ChevronLeft,
   X,
-  Building2,
 } from 'lucide-react'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useOrganization } from '../../features/organizations/hooks/useOrganization.ts'
@@ -23,12 +23,20 @@ interface SidebarProps {
   onCloseMobile?: () => void
 }
 
+// Exactly matching the requested architecture and order:
+// 1. Companies Hub
+// 2. My Work (about our tasks)
+// 3. Projects
+// 4. Reports & Analytics
+// 5. Team Members
+// 6. My Profile (below team in navbar)
 const navItems = [
-  { name: 'Dashboard', to: '/dashboard', icon: LayoutGrid },
+  { name: 'Companies Hub', to: '/companies', icon: Building2 },
+  { name: 'My Work', to: '/my-work', icon: CheckSquare },
   { name: 'Projects', to: '/projects', icon: FolderKanban },
-  { name: 'Tasks', to: '/tasks', icon: CheckSquare },
-  { name: 'Team', to: '/team', icon: Users },
-  { name: 'Settings', to: '/settings', icon: Settings },
+  { name: 'Reports & Analytics', to: '/analytics', icon: BarChart3 },
+  { name: 'Team Members', to: '/team', icon: Users },
+  { name: 'My Profile', to: '/profile', icon: UserCheck },
 ]
 
 export const Sidebar: FC<SidebarProps> = ({
@@ -46,9 +54,6 @@ export const Sidebar: FC<SidebarProps> = ({
     navigate('/login')
   }
 
-  // Determine whether full text labels are visible:
-  // On desktop: controlled by isExpanded
-  // On mobile: if mobile drawer is open, show full expanded menu
   const showExpanded = isExpanded
 
   return (
@@ -80,7 +85,7 @@ export const Sidebar: FC<SidebarProps> = ({
           {showExpanded ? (
             <div className="flex items-center justify-between w-full">
               <Link
-                to="/dashboard"
+                to="/companies"
                 onClick={onCloseMobile}
                 className="flex items-center gap-3 group"
                 aria-label="ProjectFlow Home"
@@ -117,7 +122,7 @@ export const Sidebar: FC<SidebarProps> = ({
             </div>
           ) : (
             <Link
-              to="/dashboard"
+              to="/companies"
               className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 transition-transform hover:scale-105 active:scale-95"
               aria-label="ProjectFlow Home"
             >
@@ -127,11 +132,11 @@ export const Sidebar: FC<SidebarProps> = ({
 
           {/* Active Workspace Info (visible when expanded) */}
           {showExpanded && currentOrganization && (
-            <div className="mt-5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3">
+            <div className="mt-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3">
               <div className="flex items-center justify-between text-[11px] text-slate-400">
                 <span className="flex items-center gap-1.5">
                   <Building2 className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Active Workspace</span>
+                  <span>Our Organization</span>
                 </span>
                 {currentRole && (
                   <span className="rounded bg-indigo-500/20 px-1.5 py-0.2 text-[10px] font-bold text-indigo-300 capitalize">
@@ -147,17 +152,17 @@ export const Sidebar: FC<SidebarProps> = ({
 
           {/* Section Heading */}
           {showExpanded && (
-            <div className="pt-5 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2">
+            <div className="pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2">
               Navigation
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* NAVIGATION LINKS: DASHBOARD, PROJECTS, TASKS, TEAM, SETTINGS */}
+          {/* NAVIGATION LINKS: COMPANIES HUB, MY WORK, PROJECTS, ANALYTICS, TEAM, PROFILE */}
           {/* ========================================================================= */}
           <nav
-            className={`flex flex-col w-full gap-2 ${
-              showExpanded ? 'pt-1' : 'pt-6 items-center'
+            className={`flex flex-col w-full gap-1.5 ${
+              showExpanded ? 'pt-1' : 'pt-5 items-center'
             }`}
           >
             {navItems.map((item) => {
@@ -206,7 +211,7 @@ export const Sidebar: FC<SidebarProps> = ({
           </nav>
 
           {/* ========================================================================= */}
-          {/* TOGGLE BUTTON: POSITIONED DOWN BELOW THE SETTINGS BUTTON */}
+          {/* TOGGLE EXPAND/COLLAPSE BUTTON: BELOW PROFILE */}
           {/* ========================================================================= */}
           <div className={`w-full pt-3 ${showExpanded ? '' : 'flex justify-center'}`}>
             {showExpanded ? (

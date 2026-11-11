@@ -17,10 +17,13 @@ export const Navbar: FC<NavbarProps> = ({ onOpenMobile }) => {
   // Derive dynamic page title based on active pathname
   const getPageTitle = () => {
     const path = location.pathname
+    if (path.startsWith('/companies')) return 'Companies Hub'
+    if (path.startsWith('/my-work')) return 'My Work'
     if (path.startsWith('/projects/') && path !== '/projects') return 'Project Details'
     if (path.startsWith('/projects')) return 'Projects'
-    if (path.startsWith('/tasks')) return 'Tasks'
+    if (path.startsWith('/analytics') || path.startsWith('/dashboard')) return 'Reports & Analytics'
     if (path.startsWith('/team')) return 'Team Members'
+    if (path.startsWith('/profile')) return 'My Profile'
     if (path.startsWith('/settings')) return 'Settings'
     return 'Dashboard'
   }

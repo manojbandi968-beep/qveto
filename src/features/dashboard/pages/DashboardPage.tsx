@@ -401,7 +401,7 @@ export const DashboardPage: FC = () => {
                 </span>
               </div>
               <Link
-                to="/tasks"
+                to="/my-work"
                 className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5"
               >
                 <span>Manage</span>
@@ -473,7 +473,7 @@ export const DashboardPage: FC = () => {
                 </span>
               </div>
               <Link
-                to="/tasks"
+                to="/my-work"
                 className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-0.5"
               >
                 <span>View all</span>
@@ -796,7 +796,7 @@ export const DashboardPage: FC = () => {
                     <span>Refresh metrics</span>
                   </button>
                   <Link
-                    to="/tasks"
+                    to="/my-work"
                     onClick={() => setIsActivityMenuOpen(false)}
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-900 hover:text-white text-left"
                   >
@@ -929,7 +929,7 @@ export const DashboardPage: FC = () => {
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-bold text-white">Reminders</h4>
               <Link
-                to="/tasks"
+                to="/my-work"
                 className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
               >
                 Manage &rarr;

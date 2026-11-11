@@ -7,6 +7,7 @@ import {
   Users,
   Building2,
   Check,
+  User,
 } from 'lucide-react'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
 import { useOrganization } from '../../features/organizations/hooks/useOrganization.ts'
@@ -92,12 +93,21 @@ export const ProfileButton: FC = () => {
           {/* Navigation Links */}
           <div className="py-1.5 space-y-0.5">
             <Link
-              to="/settings"
+              to="/profile"
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
             >
-              <Settings className="h-4 w-4 text-slate-400" />
-              <span>Workspace Settings</span>
+              <User className="h-4 w-4 text-indigo-400" />
+              <span>My Profile</span>
+            </Link>
+
+            <Link
+              to="/companies"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
+            >
+              <Building2 className="h-4 w-4 text-slate-400" />
+              <span>Companies Hub</span>
             </Link>
 
             <Link
@@ -106,7 +116,16 @@ export const ProfileButton: FC = () => {
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
             >
               <Users className="h-4 w-4 text-slate-400" />
-              <span>Team Directory</span>
+              <span>Team Members</span>
+            </Link>
+
+            <Link
+              to="/settings"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
+            >
+              <Settings className="h-4 w-4 text-slate-400" />
+              <span>Workspace Settings</span>
             </Link>
           </div>
 

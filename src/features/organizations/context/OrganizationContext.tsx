@@ -154,7 +154,10 @@ export const OrganizationProvider: FC<{ children: ReactNode }> = ({ children }) 
     await loadOrganizations(user.id, currentOrganization?.id)
   }, [user, loadOrganizations, currentOrganization])
 
-  const createOrganization = useCallback(async (name: string): Promise<{ organization: Organization | null; error: Error | null }> => {
+  const createOrganization = useCallback(async (
+    name: string,
+    details?: { industry?: string; description?: string }
+  ): Promise<{ organization: Organization | null; error: Error | null }> => {
     if (!user) {
       return { organization: null, error: new Error('User must be authenticated to create an organization.') }
     }
@@ -178,14 +181,61 @@ export const OrganizationProvider: FC<{ children: ReactNode }> = ({ children }) 
         throw new Error(insertError.message)
       }
 
+      const createdOrg: Organization = {
+        ...data,
+        industry: details?.industry,
+        description: details?.description,
+      }
+
       // Reload organizations and explicitly select newly created organization
       await loadOrganizations(user.id, data.id)
 
-      return { organization: data as Organization, error: null }
+      return { organization: createdOrg, error: null }
     } catch (err: unknown) {
       const errObj = err instanceof Error ? err : new Error('Failed to create organization')
       setError(errObj.message)
       return { organization: null, error: errObj }
+    } finally {
+      setLoading(false)
+    }
+  }, [user, loadOrganizations])
+
+  const updateOrganization = useCallback(async (
+    orgId: string,
+    name: string,
+    details?: { industry?: string; description?: string }
+  ): Promise<{ error: Error | null }> => {
+    try {
+      setLoading(true)
+      const trimmedName = name.trim()
+      const { error: updateError } = await supabase
+        .from('organizations')
+        .update({ name: trimmedName })
+        .eq('id', orgId)
+
+      if (updateError) {
+        throw new Error(updateError.message)
+      }
+
+      setCurrentOrganization((prev) => {
+        if (!prev || prev.id !== orgId) return prev
+        return {
+          ...prev,
+          name: trimmedName,
+          industry: details?.industry ?? prev.industry,
+          description: details?.description ?? prev.description,
+        }
+      })
+
+      if (user) {
+        await loadOrganizations(user.id, orgId)
+      }
+
+      return { error: null }
+    } catch (err: unknown) {
+      const errObj = err instanceof Error ? err : new Error('Failed to update organization')
+      setError(errObj.message)
+      return { error: errObj }
     } finally {
       setLoading(false)
     }
@@ -199,6 +249,7 @@ export const OrganizationProvider: FC<{ children: ReactNode }> = ({ children }) 
     loading,
     error,
     createOrganization,
+    updateOrganization,
     switchOrganization,
     refreshOrganizations,
   }
