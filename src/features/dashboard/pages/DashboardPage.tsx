@@ -46,8 +46,6 @@ export const DashboardPage: FC = () => {
 
   // UI Interactive States
   const [timelineFilter, setTimelineFilter] = useState<'today' | 'week' | 'month' | 'year'>('week')
-  const [isTimerRunning, setIsTimerRunning] = useState(true)
-  const [timerSeconds, setTimerSeconds] = useState(3476) // 00:57:56 initial
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
 
@@ -55,24 +53,6 @@ export const DashboardPage: FC = () => {
   const userId = user?.id
   const userEmail = user?.email
   const canManage = currentRole === 'owner' || currentRole === 'manager'
-
-  // Focus timer tick
-  useEffect(() => {
-    if (!isTimerRunning) return
-    const interval = setInterval(() => {
-      setTimerSeconds((prev) => prev + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isTimerRunning])
-
-  const formatTimer = (totalSec: number) => {
-    const hrs = Math.floor(totalSec / 3600)
-    const mins = Math.floor((totalSec % 3600) / 60)
-    const secs = totalSec % 60
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs
-      .toString()
-      .padStart(2, '0')}`
-  }
 
   // Realtime Data Fetching
   const fetchDashboardData = useCallback(async (activeOrgId: string, currentUserId?: string) => {
@@ -203,17 +183,6 @@ export const DashboardPage: FC = () => {
     return map
   }, [projects])
 
-  // Active focus task (First in-progress or highest priority task)
-  const focusTask = useMemo(() => {
-    const inProgress = tasks.find((t) => t.status === 'in_progress')
-    if (inProgress) return inProgress
-    const urgent = tasks.find((t) => t.priority === 'urgent' && t.status !== 'done')
-    if (urgent) return urgent
-    return tasks[0] || null
-  }, [tasks])
-
-  const focusProject = focusTask ? projectMap.get(focusTask.project_id) : null
-
   // Today's Tasks
   const todayTasks = useMemo(() => {
     const active = tasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
@@ -306,58 +275,10 @@ export const DashboardPage: FC = () => {
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. TOP ROW: 3 BENTO CARDS (Focus Card, Today's Tasks, Schedule/Meetings) */}
+      {/* 1. TOP ROW: 2 BENTO CARDS (Today's Tasks & Today's Schedule) */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Active Focus Timer Widget (Matching reference screenshot) */}
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md relative overflow-hidden group">
-          <div>
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-              <span className="font-semibold text-slate-300">Active Focus</span>
-              <span className="text-[10px] text-slate-500 font-mono">
-                {focusTask?.priority || 'Normal'}
-              </span>
-            </div>
-            <h3 className="text-lg font-bold text-white tracking-tight truncate">
-              {focusTask?.title || 'No active focus task'}
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5 truncate">
-              {focusProject?.name || currentOrganization?.name || 'Workspace'}
-            </p>
-          </div>
-
-          {/* Large Center Circular Action Button */}
-          <div className="my-5 flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => setIsTimerRunning(!isTimerRunning)}
-              title={isTimerRunning ? 'Pause Focus Timer' : 'Start Focus Timer'}
-              className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-rose-500 via-rose-600 to-orange-500 text-white shadow-xl shadow-rose-600/30 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              {isTimerRunning ? (
-                <Pause className="h-8 w-8 fill-current" />
-              ) : (
-                <Play className="h-8 w-8 fill-current ml-1" />
-              )}
-            </button>
-          </div>
-
-          {/* Bottom Timer Stats */}
-          <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 text-xs text-slate-400">
-            <div>
-              <span className="text-[10px] uppercase text-slate-500 block font-medium">Today</span>
-              <span className="font-mono font-semibold text-slate-200">
-                {formatTimer(timerSeconds)}
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="text-[10px] uppercase text-slate-500 block font-medium">Limits</span>
-              <span className="font-mono font-semibold text-slate-200">06:00:00</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Today's Tasks */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Card 1: Today's Tasks */}
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md">
           <div>
             <div className="flex items-center justify-between mb-4">
