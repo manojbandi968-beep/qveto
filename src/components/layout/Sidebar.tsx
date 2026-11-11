@@ -8,14 +8,19 @@ import {
   Settings,
   Layers,
   LogOut,
-  Plus,
+  ChevronRight,
+  ChevronLeft,
   X,
+  Building2,
 } from 'lucide-react'
 import { useAuth } from '../../features/auth/hooks/useAuth.ts'
+import { useOrganization } from '../../features/organizations/hooks/useOrganization.ts'
 
 interface SidebarProps {
-  isOpen?: boolean
-  onClose?: () => void
+  isExpanded: boolean
+  onToggleExpand: () => void
+  isMobileOpen?: boolean
+  onCloseMobile?: () => void
 }
 
 const navItems = [
@@ -26,8 +31,14 @@ const navItems = [
   { name: 'Settings', to: '/settings', icon: Settings },
 ]
 
-export const Sidebar: FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+export const Sidebar: FC<SidebarProps> = ({
+  isExpanded,
+  onToggleExpand,
+  isMobileOpen = false,
+  onCloseMobile,
+}) => {
   const { signOut, loading: authLoading } = useAuth()
+  const { currentOrganization, currentRole } = useOrganization()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
@@ -35,108 +46,222 @@ export const Sidebar: FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     navigate('/login')
   }
 
+  // Determine whether full text labels are visible:
+  // On desktop: controlled by isExpanded
+  // On mobile: if mobile drawer is open, show full expanded menu
+  const showExpanded = isExpanded
+
   return (
     <>
-      {/* Mobile overlay */}
-      {isOpen && (
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs transition-opacity lg:hidden"
-          onClick={onClose}
+          onClick={onCloseMobile}
           aria-hidden="true"
         />
       )}
 
-      {/* Slim Icon Rail Sidebar matching the reference design */}
+      {/* Main Sidebar Navigation */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-20 flex-col items-center justify-between border-r border-slate-800/80 bg-slate-950/95 py-5 backdrop-blur-xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col justify-between border-slate-800/80 bg-slate-950/95 backdrop-blur-xl transition-all duration-300 ease-in-out lg:static ${
+          isMobileOpen
+            ? 'w-64 translate-x-0 border-r p-5 shadow-2xl'
+            : '-translate-x-full lg:translate-x-0 ' +
+              (showExpanded
+                ? 'lg:w-64 border-r p-5 shadow-xl'
+                : 'lg:w-20 border-r py-5 px-3 items-center')
         }`}
       >
-        {/* Top: Brand Logo */}
-        <div className="flex flex-col items-center gap-6">
-          <Link
-            to="/dashboard"
-            title="ProjectFlow Home"
-            className="group flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 transition-transform hover:scale-110 active:scale-95"
-          >
-            <Layers className="h-6 w-6" />
-          </Link>
+        {/* ========================================================================= */}
+        {/* TOP SECTION: BRAND LOGO + OPTIONAL WORKSPACE */}
+        {/* ========================================================================= */}
+        <div className={`flex flex-col w-full ${showExpanded ? '' : 'items-center'}`}>
+          {showExpanded ? (
+            <div className="flex items-center justify-between w-full">
+              <Link
+                to="/dashboard"
+                onClick={onCloseMobile}
+                className="flex items-center gap-3 group"
+                aria-label="ProjectFlow Home"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 transition-transform group-hover:scale-105 active:scale-95">
+                  <Layers className="h-6 w-6" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-base text-white tracking-tight">
+                      ProjectFlow
+                    </span>
+                    <span className="rounded bg-indigo-500/20 px-1.5 py-0.2 text-[10px] font-bold text-indigo-300">
+                      v0.1
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-medium truncate">
+                    Team Collaboration
+                  </span>
+                </div>
+              </Link>
 
-          {/* Close button on mobile only */}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-900 hover:text-white lg:hidden cursor-pointer"
-              aria-label="Close sidebar"
+              {/* Close button on mobile only */}
+              {onCloseMobile && (
+                <button
+                  type="button"
+                  onClick={onCloseMobile}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-900 hover:text-white lg:hidden cursor-pointer"
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/dashboard"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30 transition-transform hover:scale-105 active:scale-95"
+              aria-label="ProjectFlow Home"
             >
-              <X className="h-5 w-5" />
-            </button>
+              <Layers className="h-6 w-6" />
+            </Link>
           )}
 
-          {/* Navigation Icon List */}
-          <nav className="flex flex-col items-center gap-3 pt-2">
+          {/* Active Workspace Info (visible when expanded) */}
+          {showExpanded && currentOrganization && (
+            <div className="mt-5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3">
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Active Workspace</span>
+                </span>
+                {currentRole && (
+                  <span className="rounded bg-indigo-500/20 px-1.5 py-0.2 text-[10px] font-bold text-indigo-300 capitalize">
+                    {currentRole}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 font-bold text-sm text-white truncate">
+                {currentOrganization.name}
+              </p>
+            </div>
+          )}
+
+          {/* Section Heading */}
+          {showExpanded && (
+            <div className="pt-5 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2">
+              Navigation
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* NAVIGATION LINKS: DASHBOARD, PROJECTS, TASKS, TEAM, SETTINGS */}
+          {/* ========================================================================= */}
+          <nav
+            className={`flex flex-col w-full gap-2 ${
+              showExpanded ? 'pt-1' : 'pt-6 items-center'
+            }`}
+          >
             {navItems.map((item) => {
               const Icon = item.icon
               return (
                 <NavLink
                   key={item.name}
                   to={item.to}
-                  onClick={onClose}
-                  title={item.name}
+                  onClick={onCloseMobile}
+                  aria-label={item.name}
                   className={({ isActive }) =>
-                    `group relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 shadow-md shadow-indigo-500/10'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                    `group flex items-center transition-all duration-200 cursor-pointer ${
+                      showExpanded
+                        ? `w-full gap-3 px-3.5 py-2.5 rounded-xl ${
+                            isActive
+                              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 font-semibold shadow-sm shadow-indigo-500/10'
+                              : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                          }`
+                        : `h-11 w-11 justify-center rounded-2xl ${
+                            isActive
+                              ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/40 shadow-md shadow-indigo-500/10'
+                              : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                          }`
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
                       <Icon
-                        className={`h-5 w-5 transition-transform duration-200 group-hover:scale-110 ${
-                          isActive ? 'text-indigo-400' : 'text-slate-400'
+                        className={`h-5 w-5 shrink-0 transition-transform duration-200 ${
+                          isActive
+                            ? 'text-indigo-400'
+                            : 'text-slate-400 group-hover:scale-110 group-hover:text-slate-200'
                         }`}
                       />
-                      {/* Tooltip on hover */}
-                      <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 shadow-xl group-hover:block">
-                        {item.name}
-                      </span>
+                      {showExpanded && (
+                        <span className="text-sm font-medium tracking-wide">
+                          {item.name}
+                        </span>
+                      )}
                     </>
                   )}
                 </NavLink>
               )
             })}
           </nav>
+
+          {/* ========================================================================= */}
+          {/* TOGGLE BUTTON: POSITIONED DOWN BELOW THE SETTINGS BUTTON */}
+          {/* ========================================================================= */}
+          <div className={`w-full pt-3 ${showExpanded ? '' : 'flex justify-center'}`}>
+            {showExpanded ? (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-800/80 bg-slate-900/40 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-900 transition-all duration-200 cursor-pointer"
+                aria-label="Collapse navigation"
+              >
+                <span className="text-xs font-semibold text-slate-300">Collapse sidebar</span>
+                <ChevronLeft className="h-4 w-4 text-indigo-400" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onToggleExpand}
+                className="group flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-800/80 bg-slate-900/60 text-indigo-400 hover:text-white hover:border-indigo-500/50 hover:bg-indigo-600/20 transition-all duration-200 cursor-pointer shadow-sm shadow-indigo-500/10"
+                aria-label="Open navigation menu"
+              >
+                <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Center/Lower Action: Quick Action Button (styled like the vibrant button in the reference image) */}
-        <div className="flex flex-col items-center gap-4">
-          <Link
-            to="/projects"
-            title="Create / View Projects"
-            className="group relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-rose-500 to-orange-500 text-white shadow-lg shadow-rose-500/30 transition-transform hover:scale-110 active:scale-95"
-          >
-            <Plus className="h-5 w-5 transition-transform group-hover:rotate-90 duration-200" />
-            <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-medium text-slate-200 shadow-xl group-hover:block">
-              Quick Action / Projects
-            </span>
-          </Link>
-
-          {/* Bottom: Sign Out Icon Button */}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={authLoading}
-            title="Sign Out"
-            className="group relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-colors cursor-pointer"
-          >
-            <LogOut className="h-5 w-5 transition-transform group-hover:scale-110" />
-            <span className="pointer-events-none absolute left-14 z-50 hidden whitespace-nowrap rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1 text-xs font-medium text-rose-300 shadow-xl group-hover:block">
-              Sign Out
-            </span>
-          </button>
+        {/* ========================================================================= */}
+        {/* BOTTOM SECTION: SIGN OUT */}
+        {/* ========================================================================= */}
+        <div
+          className={`w-full pt-4 border-t border-slate-800/60 ${
+            showExpanded ? 'flex flex-col gap-2' : 'flex justify-center'
+          }`}
+        >
+          {showExpanded ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={authLoading}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 border border-transparent transition-all cursor-pointer"
+              aria-label="Sign Out"
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              <span className="text-xs font-semibold">Sign Out</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={authLoading}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-rose-500/10 hover:text-rose-400 transition-colors cursor-pointer"
+              aria-label="Sign Out"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </aside>
     </>

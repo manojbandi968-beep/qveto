@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Menu, Building2 } from 'lucide-react'
+import { Building2, Menu } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import { useOrganization } from '../../features/organizations/hooks/useOrganization.ts'
 import { NotificationCenter } from '../../features/notifications/index.ts'
@@ -7,10 +7,10 @@ import { ThemeToggle } from './ThemeToggle.tsx'
 import { ProfileButton } from './ProfileButton.tsx'
 
 interface NavbarProps {
-  onToggleSidebar?: () => void
+  onOpenMobile?: () => void
 }
 
-export const Navbar: FC<NavbarProps> = ({ onToggleSidebar }) => {
+export const Navbar: FC<NavbarProps> = ({ onOpenMobile }) => {
   const { currentOrganization, currentRole } = useOrganization()
   const location = useLocation()
 
@@ -29,14 +29,14 @@ export const Navbar: FC<NavbarProps> = ({ onToggleSidebar }) => {
 
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-slate-800/60 bg-slate-950/80 px-4 sm:px-8 backdrop-blur-xl transition-colors">
-      {/* Left: Mobile menu toggle & Page Title */}
+      {/* Left: Mobile-only trigger & Page Title (NO button beside it on desktop) */}
       <div className="flex items-center gap-3 sm:gap-4">
-        {onToggleSidebar && (
+        {onOpenMobile && (
           <button
             type="button"
-            onClick={onToggleSidebar}
+            onClick={onOpenMobile}
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-white lg:hidden cursor-pointer"
-            aria-label="Toggle mobile menu"
+            aria-label="Open mobile navigation"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -66,7 +66,7 @@ export const Navbar: FC<NavbarProps> = ({ onToggleSidebar }) => {
         </div>
       </div>
 
-      {/* Right: Theme Toggle + Notifications + Profile Button (matching reference image) */}
+      {/* Right: Theme Toggle + Notifications + Profile Button */}
       <div className="flex items-center gap-3 sm:gap-4">
         {/* Dark / Light Theme Toggle Switch */}
         <ThemeToggle />

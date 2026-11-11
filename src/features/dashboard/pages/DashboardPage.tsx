@@ -10,6 +10,11 @@ import {
   SlidersHorizontal,
   ChevronRight,
   MoreVertical,
+  FolderPlus,
+  CheckCircle2,
+  Clock,
+  RefreshCw,
+  X,
 } from 'lucide-react'
 import { supabase } from '../../../lib/supabase.ts'
 import { createDebounce } from '../../../lib/realtime.ts'
@@ -19,6 +24,7 @@ import { useOrganization } from '../../organizations/hooks/useOrganization.ts'
 import { LoadingScreen } from '../../../components/common/LoadingScreen.tsx'
 import { TaskDrawer } from '../../tasks/components/TaskDrawer.tsx'
 import { CreateTaskModal } from '../../tasks/components/CreateTaskModal.tsx'
+import { CreateProjectModal } from '../../projects/components/CreateProjectModal.tsx'
 import type { ProjectRecord } from '../../projects/types.ts'
 import type { TaskRecord, OrgMemberOption, ActivityEvent } from '../../tasks/types.ts'
 
@@ -29,30 +35,88 @@ interface NotificationSimple {
   created_at: string
 }
 
+interface ScheduleSlot {
+  id: string
+  time: string
+  type: string
+  title: string
+  description: string
+  color: string
+}
+
 export const DashboardPage: FC = () => {
   const { user } = useAuth()
   const { currentOrganization, currentRole, loading: orgLoading } = useOrganization()
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [successToast, setSuccessToast] = useState<string | null>(null)
 
   // Data states
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [tasks, setTasks] = useState<TaskRecord[]>([])
   const [orgMembers, setOrgMembers] = useState<OrgMemberOption[]>([])
-  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([])
+  const [, setActivityEvents] = useState<ActivityEvent[]>([])
   const [, setNotifications] = useState<NotificationSimple[]>([])
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeConnectionStatus>('connecting')
 
-  // UI Interactive States
+  // Interactive UI States
   const [timelineFilter, setTimelineFilter] = useState<'today' | 'week' | 'month' | 'year'>('week')
+  const [isFilterBarOpen, setIsFilterBarOpen] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
+
+  // Modals & Popovers
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null)
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false)
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false)
+  const [isActivityMenuOpen, setIsActivityMenuOpen] = useState(false)
+  const [selectedScheduleSlot, setSelectedScheduleSlot] = useState<ScheduleSlot | null>(null)
+
+  // Reminders state (interactive)
+  const [reminders, setReminders] = useState([
+    { id: '1', time: '09:30 AM', title: 'Check automated test runs', priority: 'low', done: false },
+    { id: '2', time: '10:00 AM', title: 'Client Presentation & review', priority: 'high', done: false },
+    { id: '3', time: '04:15 PM', title: 'Production staging deployment', priority: 'urgent', done: false },
+  ])
+
+  // Schedule slots state (interactive)
+  const [scheduleSlots] = useState<ScheduleSlot[]>([
+    {
+      id: 's1',
+      time: '10:00 AM',
+      type: 'Sync',
+      title: 'Sprint roadmap and team feedback',
+      description: 'Review active deliverables and resolve cross-discipline blockers with team.',
+      color: 'text-rose-400',
+    },
+    {
+      id: 's2',
+      time: '01:00 PM',
+      type: 'Design',
+      title: 'Design system component audit',
+      description: 'Standardize dark/light theme tokens and button typography across views.',
+      color: 'text-indigo-400',
+    },
+    {
+      id: 's3',
+      time: '03:00 PM',
+      type: 'Deploy',
+      title: 'Staging verification and test runs',
+      description: 'Verify PostgreSQL RLS policies and validate staging environment builds.',
+      color: 'text-emerald-400',
+    },
+  ])
 
   const orgId = currentOrganization?.id
   const userId = user?.id
   const userEmail = user?.email
   const canManage = currentRole === 'owner' || currentRole === 'manager'
+
+  const showToast = (msg: string) => {
+    setSuccessToast(msg)
+    setTimeout(() => setSuccessToast(null), 3000)
+  }
 
   // Realtime Data Fetching
   const fetchDashboardData = useCallback(async (activeOrgId: string, currentUserId?: string) => {
@@ -183,10 +247,19 @@ export const DashboardPage: FC = () => {
     return map
   }, [projects])
 
+  // Filtered tasks for timeline
+  const filteredTimelineTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (statusFilter !== 'all' && t.status !== statusFilter) return false
+      if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false
+      return true
+    })
+  }, [tasks, statusFilter, priorityFilter])
+
   // Today's Tasks
   const todayTasks = useMemo(() => {
     const active = tasks.filter((t) => t.status !== 'done' && t.status !== 'cancelled')
-    return active.slice(0, 3)
+    return active.slice(0, 4)
   }, [tasks])
 
   // Projects Distribution for Donut Chart
@@ -215,16 +288,33 @@ export const DashboardPage: FC = () => {
     return Math.min(100, Math.max(15, Math.round((completed / tasks.length) * 100)))
   }, [tasks])
 
-  // Days of week schedule demo mapping for the timeline
+  // Week schedule mapping
   const scheduleDays = useMemo(() => {
     return [
-      { day: 'MON 18', tasks: tasks.filter((_, i) => i % 5 === 0) },
-      { day: 'TUE 19', tasks: tasks.filter((_, i) => i % 5 === 1) },
-      { day: 'WED 20', tasks: tasks.filter((_, i) => i % 5 === 2), active: true },
-      { day: 'THU 21', tasks: tasks.filter((_, i) => i % 5 === 3) },
-      { day: 'FRI 22', tasks: tasks.filter((_, i) => i % 5 === 4) },
+      { day: 'MON 18', tasks: filteredTimelineTasks.filter((_, i) => i % 5 === 0) },
+      { day: 'TUE 19', tasks: filteredTimelineTasks.filter((_, i) => i % 5 === 1) },
+      { day: 'WED 20', tasks: filteredTimelineTasks.filter((_, i) => i % 5 === 2), active: true },
+      { day: 'THU 21', tasks: filteredTimelineTasks.filter((_, i) => i % 5 === 3) },
+      { day: 'FRI 22', tasks: filteredTimelineTasks.filter((_, i) => i % 5 === 4) },
     ]
-  }, [tasks])
+  }, [filteredTimelineTasks])
+
+  // Smart handler for "Create Task": if 0 projects exist, prompts to create project first!
+  const handleOpenTaskCreation = () => {
+    if (projects.length === 0) {
+      setIsCreateProjectOpen(true)
+    } else {
+      setIsCreateTaskOpen(true)
+    }
+  }
+
+  // Toggle Reminder Done status
+  const handleToggleReminder = (id: string) => {
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, done: !r.done } : r))
+    )
+    showToast('Reminder status updated.')
+  }
 
   if (orgLoading || (loading && projects.length === 0 && tasks.length === 0)) {
     return <LoadingScreen message="Loading dashboard..." />
@@ -249,33 +339,55 @@ export const DashboardPage: FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Realtime Status Sub-indicator */}
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <div className="flex items-center gap-2">
+      {/* Toast Alert */}
+      {successToast && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl border border-emerald-500/30 bg-emerald-950/90 px-4 py-2.5 text-xs text-emerald-300 shadow-2xl backdrop-blur-md flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          <span>{successToast}</span>
+        </div>
+      )}
+
+      {/* Realtime Status Sub-indicator & Primary Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-medium text-slate-300">
             {realtimeStatus === 'connected' ? 'Realtime Connected' : 'Connecting to Realtime...'}
           </span>
           <span className="text-slate-600 hidden sm:inline">•</span>
-          <span className="hidden sm:inline text-slate-400">
-            {tasks.length} total tasks across {projects.length} projects
+          <span className="text-slate-400">
+            {tasks.length} total tasks across {projects.length} {projects.length === 1 ? 'project' : 'projects'}
           </span>
         </div>
 
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setIsCreateTaskOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Create Task</span>
-          </button>
-        )}
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setIsCreateProjectOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-slate-700 transition-colors cursor-pointer"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+              <span>Create Project</span>
+            </button>
+          )}
+
+          {canManage && (
+            <button
+              type="button"
+              onClick={handleOpenTaskCreation}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-indigo-500/30 hover:bg-indigo-500 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>{projects.length === 0 ? 'Create First Project' : 'Create Task'}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 1. TOP ROW: 2 BENTO CARDS (Today's Tasks & Today's Schedule) */}
+      {/* 1. TOP ROW: 2 BALANCED BENTO CARDS (Today's Tasks & Today's Schedule) */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Card 1: Today's Tasks */}
@@ -300,7 +412,17 @@ export const DashboardPage: FC = () => {
             {/* Task list items */}
             <div className="space-y-2.5">
               {todayTasks.length === 0 ? (
-                <p className="text-xs text-slate-500 py-6 text-center">No tasks for today</p>
+                <div className="flex flex-col items-center justify-center py-8 text-center space-y-3">
+                  <p className="text-xs text-slate-500">No active tasks in this workspace.</p>
+                  <button
+                    type="button"
+                    onClick={handleOpenTaskCreation}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Task for Today</span>
+                  </button>
+                </div>
               ) : (
                 todayTasks.map((t, idx) => {
                   const proj = projectMap.get(t.project_id)
@@ -313,7 +435,11 @@ export const DashboardPage: FC = () => {
                     >
                       <button
                         type="button"
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white ${
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedTask(t)
+                        }}
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white cursor-pointer ${
                           isFirst ? 'bg-rose-500' : 'bg-indigo-600/80'
                         }`}
                       >
@@ -325,7 +451,7 @@ export const DashboardPage: FC = () => {
                           {proj?.name || 'Project'}
                         </p>
                       </div>
-                      <span className="text-slate-600 hover:text-amber-400 transition-colors">
+                      <span className="text-slate-500 hover:text-amber-400 text-xs transition-colors">
                         ★
                       </span>
                     </div>
@@ -336,14 +462,14 @@ export const DashboardPage: FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Today's Schedule & Meetings */}
+        {/* Card 2: Today's Schedule & Milestones */}
         <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-6 flex flex-col justify-between shadow-xl backdrop-blur-md">
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white">Today&apos;s schedule</h3>
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold text-slate-300">
-                  {activityEvents.length || 3}
+                  {scheduleSlots.length}
                 </span>
               </div>
               <Link
@@ -356,43 +482,26 @@ export const DashboardPage: FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              {/* Schedule slot 1 */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-rose-400">10:00 AM</span>
-                  <span className="text-slate-500">Sync</span>
+              {scheduleSlots.map((slot) => (
+                <div
+                  key={slot.id}
+                  onClick={() => setSelectedScheduleSlot(slot)}
+                  className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 space-y-1 hover:border-slate-700 hover:bg-slate-950/90 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className={`font-bold ${slot.color}`}>{slot.time}</span>
+                    <span className="text-slate-500">{slot.type}</span>
+                  </div>
+                  <p className="text-xs font-semibold text-slate-200 line-clamp-2">
+                    {slot.title}
+                  </p>
                 </div>
-                <p className="text-xs font-semibold text-slate-200 line-clamp-2">
-                  Sprint roadmap and team feedback
-                </p>
-              </div>
+              ))}
 
-              {/* Schedule slot 2 */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-indigo-400">01:00 PM</span>
-                  <span className="text-slate-500">Design</span>
-                </div>
-                <p className="text-xs font-semibold text-slate-200 line-clamp-2">
-                  Design system component audit
-                </p>
-              </div>
-
-              {/* Schedule slot 3 */}
-              <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-3 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-bold text-emerald-400">03:00 PM</span>
-                  <span className="text-slate-500">Deploy</span>
-                </div>
-                <p className="text-xs font-semibold text-slate-200 line-clamp-2">
-                  Staging verification and test runs
-                </p>
-              </div>
-
-              {/* Schedule slot 4 (+ Action) */}
+              {/* Quick Add Schedule/Task Slot */}
               <button
                 type="button"
-                onClick={() => setIsCreateTaskOpen(true)}
+                onClick={handleOpenTaskCreation}
                 className="rounded-2xl border border-dashed border-indigo-500/30 bg-indigo-950/10 p-3 flex flex-col items-center justify-center text-center text-indigo-400 hover:bg-indigo-950/20 hover:border-indigo-500/50 transition-all cursor-pointer"
               >
                 <Plus className="h-4 w-4 mb-0.5" />
@@ -407,22 +516,28 @@ export const DashboardPage: FC = () => {
       {/* 2. LOWER SECTION: PROJECTS SCHEDULE & TIMELINE (LEFT) + ANALYTICS (RIGHT) */}
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column (~68% on desktop): Projects Weekly Schedule Grid */}
+        {/* Left Column (8 cols): Projects Schedule Grid */}
         <div className="lg:col-span-8 rounded-3xl border border-slate-800/80 bg-slate-900/60 p-5 sm:p-6 shadow-xl backdrop-blur-md space-y-5">
-          {/* Timeline Header & Range filters */}
+          {/* Header & Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <h3 className="text-lg font-bold text-white">Projects</h3>
+              {/* Working Filter Toggle Button */}
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950/70 px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white hover:border-slate-700 transition-colors cursor-pointer"
+                onClick={() => setIsFilterBarOpen(!isFilterBarOpen)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
+                  isFilterBarOpen || statusFilter !== 'all' || priorityFilter !== 'all'
+                    ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
+                    : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:text-white hover:border-slate-700'
+                }`}
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>Filter</span>
               </button>
             </div>
 
-            {/* Time filter selector */}
+            {/* Time Filter Selector: Today / Week / Month / Year */}
             <div className="flex items-center rounded-xl border border-slate-800 bg-slate-950/80 p-1 text-xs">
               {(['today', 'week', 'month', 'year'] as const).map((mode) => (
                 <button
@@ -431,7 +546,7 @@ export const DashboardPage: FC = () => {
                   onClick={() => setTimelineFilter(mode)}
                   className={`rounded-lg px-3 py-1 font-medium capitalize transition-colors cursor-pointer ${
                     timelineFilter === mode
-                      ? 'bg-slate-800 text-white shadow-sm'
+                      ? 'bg-slate-800 text-white shadow-sm font-semibold'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -441,99 +556,212 @@ export const DashboardPage: FC = () => {
             </div>
           </div>
 
-          {/* Weekly Schedule Grid with Time Axis & Live Timeline Cursor */}
-          <div className="relative overflow-x-auto">
-            {/* The red live timeline cursor line cutting across the grid */}
-            <div
-              className="pointer-events-none absolute left-0 right-0 top-36 z-20 flex items-center"
-              title="Current Timeline Cursor"
-            >
-              <span className="rounded bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
-                10:28 AM
-              </span>
-              <div className="h-px flex-1 bg-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
-            </div>
-
-            <div className="grid grid-cols-5 gap-3 min-w-[650px] pt-1">
-              {scheduleDays.map((col) => (
-                <div key={col.day} className="space-y-3">
-                  {/* Column Day Header */}
-                  <div
-                    className={`rounded-xl p-2 text-center text-xs font-bold ${
-                      col.active
-                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        : 'bg-slate-950/60 text-slate-400 border border-slate-800/60'
-                    }`}
+          {/* Collapsible Filter Bar */}
+          {isFilterBarOpen && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400">Status:</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-xs text-white focus:outline-none"
                   >
-                    {col.day}
+                    <option value="all">All</option>
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400">Priority:</span>
+                  <select
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-1 text-xs text-white focus:outline-none"
+                  >
+                    <option value="all">All</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              {(statusFilter !== 'all' || priorityFilter !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setPriorityFilter('all')
+                  }}
+                  className="text-xs text-indigo-400 hover:underline"
+                >
+                  Reset filters
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* DYNAMIC VIEW BASED ON SELECTED TIMELINE FILTER */}
+          {timelineFilter === 'today' && (
+            <div className="space-y-3 py-2">
+              <div className="text-xs font-semibold text-slate-400 flex items-center justify-between">
+                <span>Today&apos;s Active Timeline</span>
+                <span className="text-rose-400 font-mono">● LIVE</span>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { time: '09:00 AM', title: 'Daily Standup & Sprint Check', status: 'done', color: 'border-emerald-500/30' },
+                  { time: '11:00 AM', title: 'Database Migration & Indexing', status: 'in_progress', color: 'border-indigo-500/40 bg-indigo-950/20' },
+                  { time: '02:00 PM', title: 'Frontend UI Code Review', status: 'todo', color: 'border-slate-800' },
+                  { time: '04:30 PM', title: 'Realtime Deployment Verification', status: 'todo', color: 'border-slate-800' },
+                ].map((item) => (
+                  <div
+                    key={item.time}
+                    className={`flex items-center justify-between rounded-xl border p-3 text-xs ${item.color}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-indigo-300 font-bold">{item.time}</span>
+                      <span className="font-semibold text-slate-200">{item.title}</span>
+                    </div>
+                    <span className="capitalize text-slate-400">{item.status.replace('_', ' ')}</span>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  {/* Tasks in this column */}
-                  <div className="space-y-2.5 min-h-[300px]">
-                    {col.tasks.slice(0, 2).map((t, tIdx) => {
-                      const priorityColor =
-                        t.priority === 'urgent'
-                          ? 'text-rose-400'
-                          : t.priority === 'high'
-                          ? 'text-amber-400'
-                          : 'text-emerald-400'
+          {timelineFilter === 'week' && (
+            <div className="relative overflow-x-auto">
+              {/* Red live timeline cursor */}
+              <div
+                className="pointer-events-none absolute left-0 right-0 top-36 z-20 flex items-center"
+                title="Current Timeline Cursor"
+              >
+                <span className="rounded bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                  10:28 AM
+                </span>
+                <div className="h-px flex-1 bg-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+              </div>
 
-                      return (
-                        <div
-                          key={t.id}
-                          onClick={() => setSelectedTask(t)}
-                          className={`rounded-2xl border p-3 space-y-2 transition-all cursor-pointer ${
-                            col.active && tIdx === 0
-                              ? 'border-rose-500/30 bg-rose-950/20 shadow-md shadow-rose-950/30'
-                              : 'border-slate-800/80 bg-slate-950/70 hover:border-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="flex items-center gap-1 font-semibold text-slate-300">
-                              <span className={`h-1.5 w-1.5 rounded-full ${priorityColor}`} />
-                              <span className="capitalize">{t.status.replace('_', ' ')}</span>
-                            </span>
-                            <span className="text-slate-500 font-mono">09:00</span>
-                          </div>
+              <div className="grid grid-cols-5 gap-3 min-w-[650px] pt-1">
+                {scheduleDays.map((col) => (
+                  <div key={col.day} className="space-y-3">
+                    <div
+                      className={`rounded-xl p-2 text-center text-xs font-bold ${
+                        col.active
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          : 'bg-slate-950/60 text-slate-400 border border-slate-800/60'
+                      }`}
+                    >
+                      {col.day}
+                    </div>
 
-                          <h4 className="text-xs font-semibold text-white leading-snug line-clamp-2">
-                            {t.title}
-                          </h4>
+                    <div className="space-y-2.5 min-h-[280px]">
+                      {col.tasks.slice(0, 2).map((t, tIdx) => {
+                        const priorityColor =
+                          t.priority === 'urgent'
+                            ? 'text-rose-400'
+                            : t.priority === 'high'
+                            ? 'text-amber-400'
+                            : 'text-emerald-400'
 
-                          <p className="text-[11px] text-slate-400 line-clamp-1">
-                            {t.description || 'Task details and progress'}
-                          </p>
-
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px] text-slate-400">
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600/30 text-[9px] font-bold text-indigo-300">
-                                {userEmail?.[0]?.toUpperCase() || 'U'}
-                              </div>
-                              <span className="text-slate-500">01h 53m</span>
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => setSelectedTask(t)}
+                            className={`rounded-2xl border p-3 space-y-2 transition-all cursor-pointer ${
+                              col.active && tIdx === 0
+                                ? 'border-rose-500/30 bg-rose-950/20 shadow-md shadow-rose-950/30'
+                                : 'border-slate-800/80 bg-slate-950/70 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="flex items-center gap-1 font-semibold text-slate-300">
+                                <span className={`h-1.5 w-1.5 rounded-full ${priorityColor}`} />
+                                <span className="capitalize">{t.status.replace('_', ' ')}</span>
+                              </span>
+                              <span className="text-slate-500 font-mono">09:00</span>
                             </div>
-                            <span className="text-slate-500">💬 3</span>
-                          </div>
-                        </div>
-                      )
-                    })}
 
-                    {col.tasks.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-slate-800/50 bg-slate-950/30 p-4 text-center text-[11px] text-slate-600">
-                        Break time
-                      </div>
-                    )}
+                            <h4 className="text-xs font-semibold text-white leading-snug line-clamp-2">
+                              {t.title}
+                            </h4>
+
+                            <p className="text-[11px] text-slate-400 line-clamp-1">
+                              {t.description || 'Task details and progress'}
+                            </p>
+
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[10px] text-slate-400">
+                              <span className="text-slate-500">01h 53m</span>
+                              <span className="text-slate-500">💬 3</span>
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {col.tasks.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-800/50 bg-slate-950/30 p-4 text-center text-[11px] text-slate-600">
+                          Break time
+                        </div>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {timelineFilter === 'month' && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-2">
+              {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((wk, idx) => (
+                <div key={wk} className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-200">{wk}</span>
+                    <span className="text-emerald-400 font-mono font-bold">
+                      {idx === 0 ? '100%' : idx === 1 ? '75%' : 'Planned'}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 rounded-full"
+                      style={{ width: idx === 0 ? '100%' : idx === 1 ? '75%' : '20%' }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {idx === 0 ? 'Sprint kickoff completed' : idx === 1 ? 'Current sprint milestones' : 'Upcoming roadmaps'}
+                  </p>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+
+          {timelineFilter === 'year' && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-2">
+              {['Q1 Foundations', 'Q2 Scale', 'Q3 Collaboration', 'Q4 Enterprise'].map((q, idx) => (
+                <div key={q} className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-2 text-xs">
+                  <span className="font-bold text-white block">{q}</span>
+                  <p className="text-[11px] text-slate-400">
+                    {idx === 0 ? 'Completed' : idx === 1 ? 'In Progress' : 'Roadmapped'}
+                  </p>
+                  <span className="inline-block rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] text-indigo-300 font-medium">
+                    {idx === 0 ? '12 Milestones' : '8 Milestones'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Right Column (~32% on desktop): Live Analytics Panel */}
+        {/* Right Column (4 cols): Live Analytics Panel */}
         <div className="lg:col-span-4 space-y-5">
           {/* Card A: Activity Metric Card */}
           <div className="rounded-3xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-xl backdrop-blur-md space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between relative">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-bold text-white">Activity</h4>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
@@ -541,9 +769,42 @@ export const DashboardPage: FC = () => {
                   <span>+12%</span>
                 </span>
               </div>
-              <button type="button" className="text-slate-500 hover:text-white">
+
+              {/* Working 3-dots Menu Button */}
+              <button
+                type="button"
+                onClick={() => setIsActivityMenuOpen(!isActivityMenuOpen)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Activity Options"
+              >
                 <MoreVertical className="h-4 w-4" />
               </button>
+
+              {/* Dropdown Menu */}
+              {isActivityMenuOpen && (
+                <div className="absolute right-0 top-8 z-30 w-44 rounded-xl border border-slate-800 bg-slate-950 p-1.5 shadow-2xl backdrop-blur-xl text-xs space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActivityMenuOpen(false)
+                      if (orgId) void fetchDashboardData(orgId, userId)
+                      showToast('Activity data refreshed.')
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-900 hover:text-white text-left cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Refresh metrics</span>
+                  </button>
+                  <Link
+                    to="/tasks"
+                    onClick={() => setIsActivityMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-900 hover:text-white text-left"
+                  >
+                    <Clock className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>View all tasks</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
             <div>
@@ -580,78 +841,87 @@ export const DashboardPage: FC = () => {
               <span className="text-xs text-rose-400 font-semibold">-5% ↘</span>
             </div>
 
-            <div className="flex items-center gap-5">
-              {/* SVG Donut */}
-              <div className="relative h-24 w-24 shrink-0 flex items-center justify-center">
-                <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="none"
-                    stroke="#1e293b"
-                    strokeWidth="4"
-                  />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="none"
-                    stroke="#f43f5e"
-                    strokeWidth="4"
-                    strokeDasharray="44 100"
-                    strokeDashoffset="0"
-                    strokeLinecap="round"
-                  />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="4"
-                    strokeDasharray="24 100"
-                    strokeDashoffset="-44"
-                    strokeLinecap="round"
-                  />
-                  <circle
-                    cx="18"
-                    cy="18"
-                    r="14"
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="4"
-                    strokeDasharray="18 100"
-                    strokeDashoffset="-68"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute text-center">
-                  <span className="text-sm font-extrabold text-white block">
-                    {projects.length}
-                  </span>
-                  <span className="text-[9px] text-slate-500 block leading-tight">projects</span>
+            {projects.length === 0 ? (
+              <div className="text-center py-4 space-y-3">
+                <p className="text-xs text-slate-500">No projects created yet.</p>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateProjectOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors cursor-pointer"
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" />
+                    <span>Create First Project</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-5">
+                {/* SVG Donut */}
+                <div className="relative h-24 w-24 shrink-0 flex items-center justify-center">
+                  <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="14" fill="none" stroke="#1e293b" strokeWidth="4" />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="#f43f5e"
+                      strokeWidth="4"
+                      strokeDasharray="44 100"
+                      strokeDashoffset="0"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="4"
+                      strokeDasharray="24 100"
+                      strokeDashoffset="-44"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="4"
+                      strokeDasharray="18 100"
+                      strokeDashoffset="-68"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute text-center">
+                    <span className="text-sm font-extrabold text-white block">
+                      {projects.length}
+                    </span>
+                    <span className="text-[9px] text-slate-500 block leading-tight">projects</span>
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="space-y-1.5 flex-1 min-w-0">
+                  {projectDistribution.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span
+                          className="h-2 w-2 rounded-full shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-slate-300 truncate">{item.name}</span>
+                      </div>
+                      <span className="font-mono text-slate-400 font-semibold text-[11px] ml-2">
+                        {item.percentage}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* Legend */}
-              <div className="space-y-1.5 flex-1 min-w-0">
-                {projectDistribution.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span
-                        className="h-2 w-2 rounded-full shrink-0"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-slate-300 truncate">{item.name}</span>
-                    </div>
-                    <span className="font-mono text-slate-400 font-semibold text-[11px] ml-2">
-                      {item.percentage}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Card C: Reminders / Critical Deadlines */}
@@ -667,33 +937,91 @@ export const DashboardPage: FC = () => {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300">09:30 AM</span>
-                  <p className="text-[11px] text-slate-400">Check automated test runs</p>
+              {reminders.map((r) => (
+                <div
+                  key={r.id}
+                  onClick={() => handleToggleReminder(r.id)}
+                  className={`flex items-center justify-between rounded-xl border p-2.5 text-xs transition-all cursor-pointer ${
+                    r.done
+                      ? 'border-emerald-500/20 bg-emerald-950/10 text-slate-400 line-through'
+                      : 'border-slate-800 bg-slate-950/70 text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-300 block">{r.time}</span>
+                    <p className="text-[11px] text-slate-400">{r.title}</p>
+                  </div>
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                      r.done
+                        ? 'bg-slate-600'
+                        : r.priority === 'urgent'
+                        ? 'bg-rose-400'
+                        : r.priority === 'high'
+                        ? 'bg-amber-400'
+                        : 'bg-emerald-400'
+                    }`}
+                  />
                 </div>
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300">10:00 AM</span>
-                  <p className="text-[11px] text-slate-400">Client Presentation &amp; review</p>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-rose-400" />
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/70 p-2.5 text-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-300">04:15 PM</span>
-                  <p className="text-[11px] text-slate-400">Production staging deployment</p>
-                </div>
-                <span className="h-2 w-2 rounded-full bg-amber-400" />
-              </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Schedule Detail Modal */}
+      {selectedScheduleSlot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-white">Schedule Item</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedScheduleSlot(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-indigo-400">{selectedScheduleSlot.time}</span>
+                <span className="rounded bg-slate-800 px-2 py-0.5 text-slate-300 font-semibold">
+                  {selectedScheduleSlot.type}
+                </span>
+              </div>
+              <h4 className="text-sm font-semibold text-white">{selectedScheduleSlot.title}</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {selectedScheduleSlot.description}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedScheduleSlot(null)}
+                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedScheduleSlot(null)
+                  handleOpenTaskCreation()
+                }}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-500"
+              >
+                Add as Project Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task Drawer on click */}
       {selectedTask && (
@@ -713,7 +1041,7 @@ export const DashboardPage: FC = () => {
         />
       )}
 
-      {/* Quick Task Creation Modal */}
+      {/* Create Task Modal */}
       {isCreateTaskOpen && projects.length > 0 && (
         <CreateTaskModal
           projectId={projects[0].id}
@@ -722,8 +1050,22 @@ export const DashboardPage: FC = () => {
           onTaskCreated={(newTask) => {
             setTasks((prev) => [newTask, ...prev])
             setIsCreateTaskOpen(false)
+            showToast('New task created successfully!')
           }}
           members={orgMembers}
+        />
+      )}
+
+      {/* Create Project Modal */}
+      {isCreateProjectOpen && (
+        <CreateProjectModal
+          isOpen={isCreateProjectOpen}
+          onClose={() => setIsCreateProjectOpen(false)}
+          onProjectCreated={(newProject) => {
+            setProjects((prev) => [newProject, ...prev])
+            setIsCreateProjectOpen(false)
+            showToast(`Project "${newProject.name}" created! You can now add tasks.`)
+          }}
         />
       )}
     </div>
